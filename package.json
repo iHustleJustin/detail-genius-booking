@@ -1,0 +1,15 @@
+{
+  "name": "detail-genius-booking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "googleapis": "^140.0.0",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.10"
+  }
+}
