@@ -4,7 +4,6 @@ import { google } from "googleapis";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
-import { Buffer } from "buffer";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -22,33 +21,29 @@ const WORK_END = "17:00";
 const BUFFER_MIN = 30;
 
 /* =========================
-   CALENDAR ID (NORMALIZED)
+   OAUTH CONFIG (JUSTIN)
 ========================= */
-const CALENDAR_ID = "c_096198c0d603fa33c146bf05b3b0766d1976df9773d4afff93fd1d585b7f7aa7@group.calendar.google.com".trim();
-
-/* =========================
-   SERVICE ACCOUNT
-========================= */
-if (!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
-  throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_BASE64");
+if (
+  !process.env.GOOGLE_CLIENT_ID ||
+  !process.env.GOOGLE_CLIENT_SECRET ||
+  !process.env.GOOGLE_REFRESH_TOKEN
+) {
+  throw new Error("Missing OAuth environment variables");
 }
 
-const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8")
+const oAuth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  "urn:ietf:wg:oauth:2.0:oob"
 );
 
-/* =========================
-   GOOGLE AUTH
-========================= */
-const auth = new google.auth.JWT({
-  email: credentials.client_email,
-  key: credentials.private_key,
-  scopes: ["https://www.googleapis.com/auth/calendar"]
+oAuth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN
 });
 
 const calendar = google.calendar({
   version: "v3",
-  auth
+  auth: oAuth2Client
 });
 
 /* =========================
@@ -68,11 +63,11 @@ async function getBusyTimes(date) {
     requestBody: {
       timeMin: start.toISOString(),
       timeMax: end.toISOString(),
-      items: [{ id: CALENDAR_ID }]
+      items: [{ id: "primary" }]
     }
   });
 
-  return (res.data.calendars[CALENDAR_ID]?.busy || []).map(b => ({
+  return (res.data.calendars.primary?.busy || []).map(b => ({
     start: dayjs(b.start),
     end: dayjs(b.end)
   }));
@@ -136,7 +131,7 @@ app.post("/api/book", async (req, res) => {
     };
 
     const created = await calendar.events.insert({
-      calendarId: CALENDAR_ID,
+      calendarId: "primary",
       requestBody: event
     });
 
