@@ -20,7 +20,9 @@ const TZ = "America/Los_Angeles";
 const WORK_START = "09:00";
 const WORK_END = "17:00";
 const BUFFER_MIN = 30;
-const GROUP_CALENDAR_ID =
+
+/* ⚠️ YOUR CALENDAR ID */
+const CALENDAR_ID =
   "c_096198c0d603fa33c146bf05b3b0766d1976df9773d4afff93fd1d585b7f7aa7@group.calendar.google.com";
 
 /* =========================
@@ -31,10 +33,9 @@ if (!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
 }
 
 const credentials = JSON.parse(
-  Buffer.from(
-    process.env.GOOGLE_SERVICE_ACCOUNT_BASE64,
-    "base64"
-  ).toString("utf8")
+  Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, "base64").toString(
+    "utf8"
+  )
 );
 
 /* =========================
@@ -68,11 +69,11 @@ async function getBusyTimes(date) {
     requestBody: {
       timeMin: start.toISOString(),
       timeMax: end.toISOString(),
-      items: [{ id: "primary" }]
+      items: [{ id: CALENDAR_ID }]
     }
   });
 
-  return (res.data.calendars.primary?.busy || []).map(b => ({
+  return (res.data.calendars[CALENDAR_ID]?.busy || []).map(b => ({
     start: dayjs(b.start),
     end: dayjs(b.end)
   }));
@@ -84,8 +85,7 @@ function calculateSlots(date, duration, busy) {
   let cursor = start;
 
   while (
-    cursor.add(duration + BUFFER_MIN, "minute").isBefore(end) ||
-    cursor.add(duration + BUFFER_MIN, "minute").isSame(end)
+    cursor.add(duration + BUFFER_MIN, "minute").isSameOrBefore(end)
   ) {
     const slotStart = cursor;
     const slotEnd = cursor.add(duration, "minute");
@@ -134,25 +134,16 @@ app.post("/api/book", async (req, res) => {
     const event = {
       summary: "Detail Genius Booking",
       description: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}`,
-      start: {
-        dateTime: start.toISOString(),
-        timeZone: TZ
-      },
-      end: {
-        dateTime: end.toISOString(),
-        timeZone: TZ
-      }
+      start: { dateTime: start.toISOString(), timeZone: TZ },
+      end: { dateTime: end.toISOString(), timeZone: TZ }
     };
 
     const created = await calendar.events.insert({
-      calendarId: GROUP_CALENDAR_ID,
+      calendarId: CALENDAR_ID,
       requestBody: event
     });
 
-    res.json({
-      success: true,
-      eventId: created.data.id
-    });
+    res.json({ success: true, eventId: created.data.id });
   } catch (err) {
     console.error("BOOK ERROR:", err);
     res.status(500).json({ error: "failed to create booking" });
