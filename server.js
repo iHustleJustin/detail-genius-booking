@@ -21,12 +21,8 @@ const WORK_START = "09:00";
 const WORK_END = "17:00";
 const BUFFER_MIN = 30;
 
-// ✅ CALENDAR ID (trimmed to prevent hidden newline bugs)
 const CALENDAR_ID = (process.env.GOOGLE_CALENDAR_ID || "").trim();
-
-if (!CALENDAR_ID) {
-  throw new Error("Missing GOOGLE_CALENDAR_ID");
-}
+if (!CALENDAR_ID) throw new Error("Missing GOOGLE_CALENDAR_ID");
 
 /* =========================
    SERVICE ACCOUNT
@@ -55,6 +51,21 @@ const calendar = google.calendar({
   version: "v3",
   auth
 });
+
+/* =========================
+   ENSURE CALENDAR ACCESS
+========================= */
+async function ensureCalendarAccess() {
+  try {
+    await calendar.calendarList.get({ calendarId: CALENDAR_ID });
+  } catch {
+    await calendar.calendarList.insert({
+      requestBody: { id: CALENDAR_ID }
+    });
+  }
+}
+
+await ensureCalendarAccess();
 
 /* =========================
    HELPERS
@@ -89,8 +100,7 @@ function calculateSlots(date, duration, busy) {
   let cursor = start;
 
   while (
-    cursor.add(duration + BUFFER_MIN, "minute").isBefore(end) ||
-    cursor.add(duration + BUFFER_MIN, "minute").isSame(end)
+    cursor.add(duration + BUFFER_MIN, "minute").isSameOrBefore(end)
   ) {
     const slotStart = cursor;
     const slotEnd = cursor.add(duration, "minute");
@@ -139,14 +149,8 @@ app.post("/api/book", async (req, res) => {
     const event = {
       summary: "Detail Genius Booking",
       description: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}`,
-      start: {
-        dateTime: start.toISOString(),
-        timeZone: TZ
-      },
-      end: {
-        dateTime: end.toISOString(),
-        timeZone: TZ
-      }
+      start: { dateTime: start.toISOString(), timeZone: TZ },
+      end: { dateTime: end.toISOString(), timeZone: TZ }
     };
 
     const created = await calendar.events.insert({
@@ -154,11 +158,7 @@ app.post("/api/book", async (req, res) => {
       requestBody: event
     });
 
-    res.json({
-      success: true,
-      eventId: created.data.id
-    });
-
+    res.json({ success: true, eventId: created.data.id });
   } catch (err) {
     console.error("BOOK ERROR:", err);
     res.status(500).json({ error: "failed to create booking" });
