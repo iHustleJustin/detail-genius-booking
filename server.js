@@ -85,7 +85,10 @@ function calculateSlots(date, duration, busy) {
   const slots = [];
   let cursor = start;
 
-  while (cursor.add(duration + BUFFER_MIN, "minute").isSameOrBefore(end)) {
+  while (
+    cursor.add(duration + BUFFER_MIN, "minute").isBefore(end) ||
+    cursor.add(duration + BUFFER_MIN, "minute").isSame(end)
+  ) {
     const slotStart = cursor;
     const slotEnd = cursor.add(duration, "minute");
 
@@ -114,12 +117,14 @@ app.get("/health", (req, res) => {
 app.get("/api/slots", async (req, res) => {
   try {
     const { date, duration } = req.query;
+
     if (!date || !duration) {
       return res.status(400).json({ error: "date and duration required" });
     }
 
     const busy = await getBusyTimes(date);
     const slots = calculateSlots(date, Number(duration), busy);
+
     res.json({ slots });
   } catch (err) {
     console.error("SLOTS ERROR:", err);
