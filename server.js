@@ -114,17 +114,16 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---- GET AVAILABLE SLOTS ---- */
 app.get("/api/slots", async (req, res) => {
   try {
     const { date, duration } = req.query;
-
     if (!date || !duration) {
       return res.status(400).json({ error: "date and duration required" });
     }
 
     const busy = await getBusyTimes(date);
     const slots = calculateSlots(date, Number(duration), busy);
-
     res.json({ slots });
   } catch (err) {
     console.error("SLOTS ERROR:", err);
@@ -132,11 +131,42 @@ app.get("/api/slots", async (req, res) => {
   }
 });
 
-/* ======================
-   START SERVER (RAILWAY)
-====================== */
-const PORT = process.env.PORT || 8080;
+/* ---- CREATE BOOKING ---- */
+app.post("/api/book", async (req, res) => {
+  try {
+    const { date, time, duration, name, email, phone, service } = req.body;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`API listening on ${PORT}`);
-});
+    if (!date || !time || !duration || !name) {
+      return res.status(400).json({ error: "missing required fields" });
+    }
+
+    const start = dayjs.tz(`${date} ${time}`, TZ);
+    const end = start.add(Number(duration), "minute");
+
+    /* FINAL SAFETY CHECK */
+    const busy = await getBusyTimes(date);
+    const conflict = busy.some(b =>
+      start.isBefore(b.end.add(BUFFER_MIN, "minute")) &&
+      end.add(BUFFER_MIN, "minute").isAfter(b.start)
+    );
+
+    if (conflict) {
+      return res.status(409).json({ error: "time slot no longer available" });
+    }
+
+    /* CREATE CALENDAR EVENT */
+    const event = {
+      summary: `Detail Genius – ${service || "Appointment"}`,
+      description: `
+Name: ${name}
+Email: ${email || "N/A"}
+Phone: ${phone || "N/A"}
+Service: ${service || "N/A"}
+`,
+      start: {
+        dateTime: start.toISOString(),
+        timeZone: TZ
+      },
+      end: {
+        dateTime: end.toISOString(),
+        timeZone: TZ
