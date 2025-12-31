@@ -27,7 +27,7 @@ if (!CALENDAR_ID) {
 }
 
 /* ======================
-   SERVICE ACCOUNT (BASE64)
+   SERVICE ACCOUNT
 ====================== */
 if (!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
   throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_BASE64");
@@ -114,7 +114,6 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-/* ---- GET AVAILABLE SLOTS ---- */
 app.get("/api/slots", async (req, res) => {
   try {
     const { date, duration } = req.query;
@@ -131,7 +130,7 @@ app.get("/api/slots", async (req, res) => {
   }
 });
 
-/* ---- CREATE BOOKING ---- */
+/* ---- NON-BLOCKING BOOK ---- */
 app.post("/api/book", async (req, res) => {
   try {
     const { date, time, duration, name, email, phone, service } = req.body;
@@ -143,30 +142,30 @@ app.post("/api/book", async (req, res) => {
     const start = dayjs.tz(`${date} ${time}`, TZ);
     const end = start.add(Number(duration), "minute");
 
-    /* FINAL SAFETY CHECK */
-    const busy = await getBusyTimes(date);
-    const conflict = busy.some(b =>
-      start.isBefore(b.end.add(BUFFER_MIN, "minute")) &&
-      end.add(BUFFER_MIN, "minute").isAfter(b.start)
-    );
-
-    if (conflict) {
-      return res.status(409).json({ error: "time slot no longer available" });
-    }
-
-    /* CREATE CALENDAR EVENT */
     const event = {
       summary: `Detail Genius – ${service || "Appointment"}`,
-      description: `
-Name: ${name}
-Email: ${email || "N/A"}
-Phone: ${phone || "N/A"}
-Service: ${service || "N/A"}
-`,
-      start: {
-        dateTime: start.toISOString(),
-        timeZone: TZ
-      },
-      end: {
-        dateTime: end.toISOString(),
-        timeZone: TZ
+      description: `Name: ${name}\nEmail: ${email || "N/A"}\nPhone: ${phone || "N/A"}`,
+      start: { dateTime: start.toISOString(), timeZone: TZ },
+      end: { dateTime: end.toISOString(), timeZone: TZ }
+    };
+
+    const created = await calendar.events.insert({
+      calendarId: CALENDAR_ID,
+      requestBody: event
+    });
+
+    res.json({ success: true, eventId: created.data.id });
+  } catch (err) {
+    console.error("BOOK ERROR:", err);
+    res.status(500).json({ error: "failed to create booking" });
+  }
+});
+
+/* ======================
+   START SERVER
+====================== */
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`API listening on ${PORT}`);
+});
