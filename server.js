@@ -21,9 +21,10 @@ const WORK_START = "09:00";
 const WORK_END = "17:00";
 const BUFFER_MIN = 30;
 
-/* ⚠️ YOUR CALENDAR ID */
-const CALENDAR_ID =
-  "c_096198c0d603fa33c146bf05b3b0766d1976df9773d4afff93fd1d585b7f7aa7@group.calendar.google.com";
+/* =========================
+   CALENDAR ID (NORMALIZED)
+========================= */
+const CALENDAR_ID = "c_096198c0d603fa33c146bf05b3b0766d1976df9773d4afff93fd1d585b7f7aa7@group.calendar.google.com".trim();
 
 /* =========================
    SERVICE ACCOUNT
@@ -33,9 +34,7 @@ if (!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
 }
 
 const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, "base64").toString(
-    "utf8"
-  )
+  Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8")
 );
 
 /* =========================
@@ -84,9 +83,7 @@ function calculateSlots(date, duration, busy) {
   const slots = [];
   let cursor = start;
 
-  while (
-    cursor.add(duration + BUFFER_MIN, "minute").isSameOrBefore(end)
-  ) {
+  while (cursor.add(duration + BUFFER_MIN, "minute").isSameOrBefore(end)) {
     const slotStart = cursor;
     const slotEnd = cursor.add(duration, "minute");
 
