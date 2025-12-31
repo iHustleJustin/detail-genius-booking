@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 if (!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
   throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_BASE64");
 }
