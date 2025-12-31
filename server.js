@@ -14,13 +14,15 @@ app.use(cors());
 app.use(express.json());
 
 /* ======================
-   CONFIG
+   CONFIG (HARDENED)
 ====================== */
 const TZ = process.env.TZ || "America/Los_Angeles";
 const WORK_START = process.env.WORK_START || "09:00";
 const WORK_END = process.env.WORK_END || "17:00";
 const BUFFER_MIN = Number(process.env.BUFFER_MIN || 30);
-const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID;
+
+/* 🔒 DEFENSIVE TRIM */
+const CALENDAR_ID = (process.env.GOOGLE_CALENDAR_ID || "").trim();
 
 if (!CALENDAR_ID) {
   throw new Error("Missing GOOGLE_CALENDAR_ID");
@@ -130,7 +132,6 @@ app.get("/api/slots", async (req, res) => {
   }
 });
 
-/* ---- NON-BLOCKING BOOK ---- */
 app.post("/api/book", async (req, res) => {
   try {
     const { date, time, duration, name, email, phone, service } = req.body;
