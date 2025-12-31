@@ -21,6 +21,13 @@ const WORK_START = "09:00";
 const WORK_END = "17:00";
 const BUFFER_MIN = 30;
 
+// ✅ CALENDAR ID (trimmed to prevent hidden newline bugs)
+const CALENDAR_ID = (process.env.GOOGLE_CALENDAR_ID || "").trim();
+
+if (!CALENDAR_ID) {
+  throw new Error("Missing GOOGLE_CALENDAR_ID");
+}
+
 /* =========================
    SERVICE ACCOUNT
 ========================= */
@@ -66,11 +73,11 @@ async function getBusyTimes(date) {
     requestBody: {
       timeMin: start.toISOString(),
       timeMax: end.toISOString(),
-      items: [{ id: "primary" }]
+      items: [{ id: CALENDAR_ID }]
     }
   });
 
-  return (res.data.calendars.primary?.busy || []).map(b => ({
+  return (res.data.calendars[CALENDAR_ID]?.busy || []).map(b => ({
     start: dayjs(b.start),
     end: dayjs(b.end)
   }));
@@ -143,7 +150,7 @@ app.post("/api/book", async (req, res) => {
     };
 
     const created = await calendar.events.insert({
-      calendarId: "primary",
+      calendarId: CALENDAR_ID,
       requestBody: event
     });
 
